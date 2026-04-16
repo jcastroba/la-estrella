@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Claude local settings
+.claude/settings.local.json
+
+# Arte originales (archivos pesados opcionales)
+Arte/Originales sin optimizar/
+Arte/materialgraficobrjula2026/
+
+# Archivos demasiado grandes para GitHub (>100MB)
+Arte/MAPA ESTRELLA.pdf
+Arte/Brújula 2026 Colombia un territorio para jugar.pdf
