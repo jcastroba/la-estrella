@@ -1,6 +1,7 @@
 function sanitize(str) {
 return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
 }
+let _diceId = 0;
 function getDiceSVG(value) {
 const dotMap = {
 1: [[50, 50]],
@@ -13,12 +14,13 @@ const dotMap = {
 const dots = (dotMap[value] || dotMap[1])
 .map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="8.5" fill="#1B2A4A"/>`)
 .join('');
+const fid = 'ds' + (++_diceId);
 return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
 <defs>
-<filter id="ds"><feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.3"/></filter>
+<filter id="${fid}"><feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.3"/></filter>
 </defs>
 <rect x="4" y="4" width="92" height="92" rx="18" ry="18"
-fill="white" stroke="#ddd" stroke-width="2" filter="url(#ds)"/>
+fill="white" stroke="#ddd" stroke-width="2" filter="url(#${fid})"/>
 ${dots}
 </svg>`;
 }
@@ -127,17 +129,20 @@ const cW = container.clientWidth;
 const cH = container.clientHeight;
 const iW = img.naturalWidth || 1700;
 const iH = img.naturalHeight || 1200;
-// Detectar modo: si el contenedor es más portrait que la imagen → contain (muestra todo)
-// Si el contenedor es más landscape → cover (rellena sin distorsión)
-const fit = window.getComputedStyle(img).objectFit;
-const scale = fit === 'contain'
-  ? Math.min(cW / iW, cH / iH)
-  : Math.max(cW / iW, cH / iH);
-const rW = iW * scale;
-const rH = iH * scale;
-const oX = (cW - rW) / 2;
-const oY = (cH - rH) / 2;
-return { oX, oY, rW, rH };
+// Siempre hacer zoom al área de casillas (x: 29–72%, y: 12–87%)
+// con padding suficiente para labels y tokens en todos los tamaños de pantalla
+const scaleBase = Math.min(cW / iW, cH / iH);
+const rWBase = iW * scaleBase;
+const rHBase = iH * scaleBase;
+const X1 = 0.20, X2 = 0.81, Y1 = 0.06, Y2 = 0.95;
+const bboxW = (X2 - X1) * rWBase;
+const bboxH = (Y2 - Y1) * rHBase;
+const zoom = Math.min(cW / bboxW, cH / bboxH);
+const rW = rWBase * zoom;
+const rH = rHBase * zoom;
+const oX = cW / 2 - ((X1 + X2) / 2) * rW;
+const oY = cH / 2 - ((Y1 + Y2) / 2) * rH;
+return { oX, oY, rW, rH, isMobile: window.innerWidth <= 700 };
 },
 mapPx(xPct, yPct) {
 const o = this.getMapOverlay();
@@ -152,6 +157,9 @@ const mapaEl = document.getElementById('mapa-container');
 mapaEl.innerHTML = '';
 const o = this.getMapOverlay();
 if (!o) return;
+// Posicionar la imagen explícitamente para que coincida con el overlay en todos los tamaños
+const bgImg = document.querySelector('.mapa-bg');
+bgImg.style.cssText = `position:absolute;left:${o.oX}px;top:${o.oY}px;width:${o.rW}px;height:${o.rH}px;object-fit:fill;`;
 const overlay = document.createElement('div');
 overlay.id = 'map-overlay';
 overlay.style.cssText = `position:absolute;left:${o.oX}px;top:${o.oY}px;width:${o.rW}px;height:${o.rH}px;overflow:visible;`;
@@ -185,7 +193,7 @@ const isStart = i === 0;
 const isMeta = i === CASILLAS.length - 1;
 const numLabel = isStart ? 'INICIO' : isMeta ? 'FINAL' : i;
 el.innerHTML = `
-<div class="casilla-label">${c.nombre}</div>
+<div class="casilla-label${c.y <= 22 ? ' casilla-label-below' : ''}">${c.nombre}</div>
 <div class="casilla-num">${numLabel}</div>
 `;
 overlay.appendChild(el);
